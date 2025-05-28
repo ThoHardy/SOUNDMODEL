@@ -613,31 +613,26 @@ class RepresentationDynamicsModel:
 
     def sample_size_control_acceptor(self, distance_function, eps, x, x_0, t, par): # pyABC-formatted method, not sure how to type-hint it.
         ''' if the number of sampled particles, for a given iteration, passes 5 times the target population size, accept anything (reproduce past posterior estimate). '''
-        global sample_size, abciteration
-        with sample_size.get_lock() and abciteration.get_lock():
-            if abciteration.value < t:
-                abciteration.value += 1
-                sample_size.value = 0
-            else :
-                sample_size.value += 1
+        global progress
+        with progress.get_lock():
+            progress.value+=1
         d = distance_function(x, x_0)
-        accept = d <= eps(t) if sample_size.value < 5*self.population_size_during_ABC else True
+        accept = d <= eps(t) if progress.value < 5*self.population_size_during_ABC else True
         return pyabc.acceptor.AcceptorResult(distance=d, accept=accept)
 
     def init_ABCSMC(self, categories_to_fit: list[int], priors: pyabc.random_variables.random_variables.Distribution, nb_series_per_cat: int=10000, feedback: bool=False, sample_size_control: bool=False):
         self.initialize() if self.stim_offset_index == None else None
         if feedback:
-            # global progressWin, progress
-            # with progress.get_lock():
-            #     progress.value = 0
-            # with progressWin.get_lock():
-            #     progressWin.value = 0
+            global progressWin, progress
+            with progress.get_lock():
+                progress.value = 0
+            with progressWin.get_lock():
+                progressWin.value = 0
             acceptor = pyabc.acceptor.FunctionAcceptor(self.feedbacking_acceptor) 
         elif sample_size_control:
-            global sample_size, abciteration
-            with sample_size.get_lock() and abciteration.get_lock():
-                sample_size.value = 0
-                abciteration.value = 0
+            global progress
+            with progress.get_lock():
+                progress.value = 0
             acceptor = pyabc.acceptor.FunctionAcceptor(self.sample_size_control_acceptor)
         else:
             acceptor = pyabc.acceptor.FunctionAcceptor(self.default_acceptor)
